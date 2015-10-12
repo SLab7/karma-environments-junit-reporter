@@ -29,17 +29,23 @@ var JUnitReporter = function (baseReporterDecorator, config, logger, helper, for
     }
   ]
 
+  // There are multiple test suites when you use karma-environments so we use a collector for all stats per browser spawned..
+  var collectors = Object.create(null);
+
   var initliazeXmlForBrowser = function (browser) {
     var timestamp = (new Date()).toISOString().substr(0, 19)
-    var suite = suites[browser.id] = builder.create('testsuite')
-    suite.att('name', browser.name)
-      .att('package', pkgName)
-      .att('timestamp', timestamp)
-      .att('id', 0)
-      .att('hostname', os.hostname())
+    if (!suites[browser.id]) {
+      var suite = suites[browser.id] = builder.create('testsuite')
+      suite.att('name', browser.name)
+        .att('package', pkgName)
+        .att('timestamp', timestamp)
+        .att('id', 0)
+        .att('hostname', os.hostname())
 
-    suite.ele('properties')
-      .ele('property', {name: 'browser.fullName', value: browser.fullName})
+      suite.ele('properties')
+        .ele('property', {name: 'browser.fullName', value: browser.fullName})
+      collectors[browser.id] = {tests: 0, errors: 0, failures: 0, time: 0};
+    }
   }
 
   var writeXmlForBrowser = function (browser) {
@@ -57,6 +63,15 @@ var JUnitReporter = function (baseReporterDecorator, config, logger, helper, for
       return // don't die if browser didn't start
     }
 
+    var collector = collectors[browser.id];
+    xmlToOutput.att('tests', collector.tests)
+    xmlToOutput.att('errors', collector.errors)
+    xmlToOutput.att('failures', collector.failures)
+    xmlToOutput.att('time', collector.time)
+
+    xmlToOutput.ele('system-out')
+    xmlToOutput.ele('system-err')
+
     pendingFileWritings++
     helper.mkdirIfNotExists(path.dirname(newOutputFile), function () {
       fs.writeFile(newOutputFile, xmlToOutput.end({pretty: true}), function (err) {
@@ -73,8 +88,14 @@ var JUnitReporter = function (baseReporterDecorator, config, logger, helper, for
     })
   }
 
+  var currentBrowsers = null;
+
   this.onRunStart = function (browsers) {
-    suites = Object.create(null)
+    if (!suites) {
+      suites = Object.create(null)
+    }
+
+    currentBrowsers = browsers;
 
     // TODO(vojta): remove once we don't care about Karma 0.10
     browsers.forEach(initliazeXmlForBrowser)
@@ -91,20 +112,12 @@ var JUnitReporter = function (baseReporterDecorator, config, logger, helper, for
       return // don't die if browser didn't start
     }
 
-    suite.att('tests', result.total)
-    suite.att('errors', result.disconnected || result.error ? 1 : 0)
-    suite.att('failures', result.failed)
-    suite.att('time', (result.netTime || 0) / 1000)
-
-    suite.ele('system-out').dat(allMessages.join() + '\n')
-    suite.ele('system-err')
-
-    writeXmlForBrowser(browser)
-  }
-
-  this.onRunComplete = function () {
-    suites = null
-    allMessages.length = 0
+    //collect all stats into a single store
+    var collector = collectors[browser.id];
+    collector.tests += result.total;
+    collector.errors += (result.disconnected || result.error ? 1 : 0)
+    collector.failures += result.failed
+    collector.time += ((result.netTime || 0) / 1000)
   }
 
   this.specSuccess = this.specSkipped = this.specFailure = function (browser, result) {
@@ -122,10 +135,17 @@ var JUnitReporter = function (baseReporterDecorator, config, logger, helper, for
         spec.ele('failure', {type: ''}, formatError(err))
       })
     }
+
+    spec.ele('system-out').dat(allMessages.join()+'\n');
+    spec.ele('system-err');
+
+    //reset messages for the next spec..
+    allMessages.length = 0;
   }
 
   // wait for writing all the xml files, before exiting
   this.onExit = function (done) {
+    currentBrowsers.forEach(writeXmlForBrowser);
     if (pendingFileWritings) {
       fileWritingFinished = done
     } else {
