@@ -1,7 +1,7 @@
 {
-  "name": "karma-junit-reporter",
+  "name": "karma-environments-junit-reporter",
   "version": "0.3.7",
-  "description": "A Karma plugin. Report results in junit xml format.",
+  "description": "Karma plugin based forked from karma-junit-reporter compatible with karma-environments.",
   "main": "index.js",
   "files": [
     "index.js"
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/karma-runner/karma-junit-reporter.git"
+    "url": "git@github.com:SLab7/karma-junit-reporter.git"
   },
   "keywords": [
     "junit",
@@ -60,6 +60,7 @@
     "Brian Donovan <me@brian-donovan.com>",
     "Brian Meneses <brian.meneses@gmail.com>",
     "Cesar Andreu <cesarandreu@gmail.com>",
-    "David Pärsson <david@parsson.se>"
+    "David Pärsson <david@parsson.se>",
+    "Reginald Eli Deinla <radeinla@softwarelab7.com>"
   ]
 }
